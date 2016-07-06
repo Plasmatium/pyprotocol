@@ -36,8 +36,11 @@ class InheritException(Exception):
 
     '''Could not be inherited.'''
 
+class InstantiationException(Exception):
+    '''Protocols Could not be instantiated.'''
 
-class NoInheritMeta(type):
+
+class ProtocolMeta(type):
 
     def __new__(cls, name, bases, dct):
         for base in bases:
@@ -45,3 +48,6 @@ class NoInheritMeta(type):
                 raise InheritException('Could not be inherited from %s' % base)
 
         return super().__new__(cls, name, bases, dct)
+
+    def __call__(self, *args, **kwargs):
+        raise InstantiationException('Protocols Could not be instantiated.')
