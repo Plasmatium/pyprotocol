@@ -1,0 +1,6 @@
+This is TODO list
+
+1. Add some methods in <class ProtocolMeta>, such as get_protocol_hierarchy(),
+   get_all_protocol_methods(), etc.
+2. Improve test. There should be a Test/ folder with *.py for seperate
+   functional testing.

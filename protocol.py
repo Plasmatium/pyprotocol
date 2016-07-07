@@ -32,10 +32,22 @@
 '''
 from ipdb import set_trace
 
-def get_callable(cls):
+
+def get_callables(cls):
     methods = dir(cls)
     return [getattr(cls, m) for m in methods if not m.startswith(
         '__') and callable(getattr(cls, m))]
+
+
+def tuplize(obj):
+    ''' Make obj a tuple if it's not a tuple, otherwise just return obj.'''
+    return obj if isinstance(obj, tuple) else (obj,)
+
+
+def listize(obj):
+    ''' Make obj a list if it's not a tuple, otherwise just return obj.'''
+    return obj if isinstance(obj, list) else [obj, ]
+
 
 def add_metaclass(metaclass):
     """Class decorator for creating a class with a metaclass."""
@@ -59,24 +71,27 @@ def protocol(cls):
     return p
 
 
-def joint(classes):
+def joint(*protocols):
     def wrapper(cls):
-        ###### debug ######
-        if cls.__name__ == 'TargetClass':
-            set_trace()
-        ###################
-        protocols = classes if isinstance(classes, tuple) else (classes,)
-        exist_methods = get_callable(cls)
-        inc_methods = []
+        cls.__protocols__ = set(protocols)
+        exist_methods = [m.__name__ for m in get_callables(cls)]
+
         for protocol in protocols:
+            # Only protocols could be jointed
             if not isinstance(protocol, ProtocolMeta):
                 raise TypeError('%s is %s, not a protocol' %
                                 (protocol, type(protocol)))
 
+            # attach protocol's __protocols__
+            cls.__protocols__.update(getattr(protocol, '__protocols__', set()))
+
+            # Here protocol interface could be overrided by other
+            # protocols behind, but cls method with same __name__
+            # as one of protocol's interface would not be overrided.
+            # See detials in test.py
             for m in protocol.__interface__:
-                if m not in inc_methods and m not in exist_methods:
+                if m.__name__ not in exist_methods:
                     setattr(cls, m.__name__, m)
-                    inc_methods.append(m)
 
         return cls
     return wrapper
@@ -84,12 +99,16 @@ def joint(classes):
 
 class InheritException(Exception):
 
-    '''Could not be inherited.'''
+    ''' Could not be inherited.'''
 
 
 class InstantiationException(Exception):
 
-    '''Protocols Could not be instantiated.'''
+    ''' Protocols Could not be instantiated.'''
+
+
+class DuplicateProtocolException(Exception):
+    ''' No reason to joint duplicated protocols'''
 
 
 class ProtocolMeta(type):
@@ -102,7 +121,9 @@ class ProtocolMeta(type):
         newclass = super().__new__(cls, name, bases, dct)
         # Maybe the class to create is jointing a protocol
         newclass._isprotocol = False
-        newclass.__interface__ = get_callable(newclass)
+        # TODO 1:
+        # newclass.get_protocol_hierarchy = lambda : None
+        newclass.__interface__ = get_callables(newclass)
 
         return newclass
 
