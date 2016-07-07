@@ -32,6 +32,10 @@
 '''
 from ipdb import set_trace
 
+def get_callable(cls):
+    methods = dir(cls)
+    return [getattr(cls, m) for m in methods if not m.startswith(
+        '__') and callable(getattr(cls, m))]
 
 def add_metaclass(metaclass):
     """Class decorator for creating a class with a metaclass."""
@@ -57,14 +61,22 @@ def protocol(cls):
 
 def joint(classes):
     def wrapper(cls):
+        ###### debug ######
+        if cls.__name__ == 'TargetClass':
+            set_trace()
+        ###################
         protocols = classes if isinstance(classes, tuple) else (classes,)
+        exist_methods = get_callable(cls)
+        inc_methods = []
         for protocol in protocols:
             if not isinstance(protocol, ProtocolMeta):
                 raise TypeError('%s is %s, not a protocol' %
                                 (protocol, type(protocol)))
 
             for m in protocol.__interface__:
-                setattr(cls, m.__name__, m)
+                if m not in inc_methods and m not in exist_methods:
+                    setattr(cls, m.__name__, m)
+                    inc_methods.append(m)
 
         return cls
     return wrapper
@@ -90,9 +102,7 @@ class ProtocolMeta(type):
         newclass = super().__new__(cls, name, bases, dct)
         # Maybe the class to create is jointing a protocol
         newclass._isprotocol = False
-        newclass.__interface__ = [getattr(
-            newclass, m) for m in dir(newclass) if not m.startswith(
-            '__') and callable(getattr(newclass, m))]
+        newclass.__interface__ = get_callable(newclass)
 
         return newclass
 

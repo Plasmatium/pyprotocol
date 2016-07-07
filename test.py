@@ -26,5 +26,5 @@ class TargetClass():
         self.args = args
         self.kwargs = kwargs
 
-    def funcx(self):
+    def func(self):
         return hash(str(self.func()))
