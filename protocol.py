@@ -73,7 +73,7 @@ def protocol(cls):
 
 def joint(*protocols):
     def wrapper(cls):
-        cls.__protocols__ = set(protocols)
+        cls.__extended__ = set(protocols)
         exist_methods = [m.__name__ for m in get_callables(cls)]
 
         for protocol in protocols:
@@ -82,8 +82,8 @@ def joint(*protocols):
                 raise TypeError('%s is %s, not a protocol' %
                                 (protocol, type(protocol)))
 
-            # attach protocol's __protocols__
-            cls.__protocols__.update(getattr(protocol, '__protocols__', set()))
+            # attach protocol's __extended__
+            cls.__extended__.update(getattr(protocol, '__extended__', set()))
 
             # Here protocol interface could be overrided by other
             # protocols behind, but cls method with same __name__
@@ -92,6 +92,7 @@ def joint(*protocols):
             for m in protocol.__interface__:
                 if m.__name__ not in exist_methods:
                     setattr(cls, m.__name__, m)
+
 
         return cls
     return wrapper
@@ -113,6 +114,22 @@ class DuplicateProtocolException(Exception):
 
 class ProtocolMeta(type):
 
+    def trimExtended(self):
+        ''' trim protocol hierarchy'''
+        assert(not hasattr(self, '_isprotocol'))
+        print(self)
+        print('trimExtended')
+
+
+    def get_protocol_hierarchy(self):
+        assert(not hasattr(self, '_isprotocol'))
+
+        for p in self.__extended__:
+            print(p)
+            for i in p.__interface__:
+                print(i)
+            print()
+
     def __new__(cls, name, bases, dct):
         for base in bases:
             if isinstance(base, cls):
@@ -122,8 +139,9 @@ class ProtocolMeta(type):
         # Maybe the class to create is jointing a protocol
         newclass._isprotocol = False
         # TODO 1:
-        # newclass.get_protocol_hierarchy = lambda : None
+        newclass.get_protocol_hierarchy = cls.get_protocol_hierarchy
         newclass.__interface__ = get_callables(newclass)
+        newclass.__extended__ = set()
 
         return newclass
 
