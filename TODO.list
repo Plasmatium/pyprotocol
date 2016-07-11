@@ -4,3 +4,5 @@ This is TODO list
    get_all_protocol_methods(), etc.
 2. Improve test. There should be a Test/ folder with *.py for seperate
    functional testing.
+3. Add functionality, that could extract protocols from a jointer, and inject
+   these protocols into another object.

@@ -30,13 +30,16 @@
     can be created under other protocols, but protocol itself can not be inherited.
 
 '''
-from ipdb import set_trace
+import inspect
+from warnings import warn
+from IPython.core.debugger import Tracer
+set_trace = Tracer()
 
 
 def get_callables(cls):
     methods = dir(cls)
-    return [getattr(cls, m) for m in methods if not m.startswith(
-        '__') and callable(getattr(cls, m))]
+    return (getattr(cls, m) for m in methods if not m.startswith(
+        '_') and callable(getattr(cls, m)))
 
 
 def tuplize(obj):
@@ -70,29 +73,42 @@ def protocol(cls):
     p._isprotocol = True
     return p
 
+xxx = None
+
 
 def joint(*protocols):
+    joint.warning = False
     def wrapper(cls):
-        cls.__extended__ = set(protocols)
-        exist_methods = [m.__name__ for m in get_callables(cls)]
-
+        cls.__protocols__ = set()
+        
         for protocol in protocols:
             # Only protocols could be jointed
             if not isinstance(protocol, ProtocolMeta):
                 raise TypeError('%s is %s, not a protocol' %
                                 (protocol, type(protocol)))
 
-            # attach protocol's __extended__
-            cls.__extended__.update(getattr(protocol, '__extended__', set()))
+            # attach protocol's __protocols__
+            cls.__protocols__.update(getattr(protocol, '__protocols__', set()))
 
             # Here protocol interface could be overrided by other
             # protocols behind, but cls method with same __name__
             # as one of protocol's interface would not be overrided.
             # See detials in test.py
-            for m in protocol.__interface__:
-                if m.__name__ not in exist_methods:
-                    setattr(cls, m.__name__, m)
+            for method in protocol.__interface__:
+                if method.__name__ not in dir(cls):
+                    setattr(cls, method.__name__, method)
+                    cls.__protocols__.update({protocol})
+                else:
+                    if not joint.warning:
+                        continue
 
+                    exist_method = getattr(cls, method.__name__)
+                    warning_string = '''
+                    In jointing %s, conflict function name:
+                    "%s" with "%s"
+                    using the second one above.
+                    '''%(cls, method, exist_method)
+                    warn(warning_string)
 
         return cls
     return wrapper
@@ -120,11 +136,10 @@ class ProtocolMeta(type):
         print(self)
         print('trimExtended')
 
-
     def get_protocol_hierarchy(self):
         assert(not hasattr(self, '_isprotocol'))
 
-        for p in self.__extended__:
+        for p in self.__protocols__:
             print(p)
             for i in p.__interface__:
                 print(i)
@@ -135,13 +150,13 @@ class ProtocolMeta(type):
             if isinstance(base, cls):
                 raise InheritException('Could not be inherited from %s' % base)
 
+        name = name if name.startswith('ptl') else ''.join(('ptc', name))
         newclass = super().__new__(cls, name, bases, dct)
         # Maybe the class to create is jointing a protocol
         newclass._isprotocol = False
         # TODO 1:
         newclass.get_protocol_hierarchy = cls.get_protocol_hierarchy
         newclass.__interface__ = get_callables(newclass)
-        newclass.__extended__ = set()
 
         return newclass
 
