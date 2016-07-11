@@ -6,3 +6,5 @@ This is TODO list
    functional testing.
 3. Add functionality, that could extract protocols from a jointer, and inject
    these protocols into another object.
+4. Compatibility issues: i) get_callables() on pandas.DataFrame.
+                        ii) method_descriptor such as str.ljust.
