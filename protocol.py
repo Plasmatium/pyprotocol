@@ -157,38 +157,35 @@ class ProtocolMeta(type):
         else:
             return super().__call__(*args, **kwargs)
 
-    @staticmethod
-    def update_hierarchy(upper, qname_list):
-
-        this_level = qname_list.pop(0)
-        level_content = getattr(upper, this_level, [])
-        upper.update({this_level, level_content})
-
-        if len(qname_list) == 0:
-            return 
-        return level_content.append(update_hierarchy({}, qname_list))
-        
-
-
     # this is classmethod, bounded when newclass bounded
     # @classmethod should not be here
     def get_protocol_hierarchy(cls):
-        rslt = {}
+        hierarchy = ProtocolHierarchy()
         for method in get_callables(cls):
-            qname_list = method.__qualname__.split(',')
+            qname_list = method.__qualname__.split('.')
             owner = qname_list[0]
-            if owner != cls.__name__:
-                ProtocolMeta.update_hierarchy(rslt, qname_list)
+            # Only jointed function should be stayed here
+            if owner == cls.__name__:
+                continue
+            curr = hierarchy
+            for name in qname_list:
+                if hasattr(curr, name):
+                    curr = getattr(curr, name)
+                else:
+                    _ = ProtocolHierarchy()
+                    setattr(curr, name, _)
+                    curr = _
 
-        return rslt
+        return hierarchy
+
 
 class ProtocolHierarchy():
-    @property
-    def hierarchy(self):
-        return self._hierarchy
 
     def __setattr__(self, name, value):
         if not isinstance(value, ProtocolHierarchy):
             return
-        
+
         object.__setattr__(self, name, value)
+
+    def get_dict(self):
+        pass
