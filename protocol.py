@@ -39,7 +39,7 @@ set_trace = Tracer()
 def get_callables(cls):
     methods = dir(cls)
     return (getattr(cls, m) for m in methods if not m.startswith(
-        '_') and callable(getattr(cls, m)))
+        '_') and callable(getattr(cls, m, None)))
 
 
 def tuplize(obj):
@@ -78,9 +78,10 @@ xxx = None
 
 def joint(*protocols):
     joint.warning = False
+
     def wrapper(cls):
         cls.__protocols__ = set()
-        
+
         for protocol in protocols:
             # Only protocols could be jointed
             if not isinstance(protocol, ProtocolMeta):
@@ -94,8 +95,9 @@ def joint(*protocols):
             # protocols behind, but cls method with same __name__
             # as one of protocol's interface would not be overrided.
             # See detials in test.py
+            exist_methods_name = dir(cls)
             for method in protocol.__interface__:
-                if method.__name__ not in dir(cls):
+                if method.__name__ not in exist_methods_name:
                     setattr(cls, method.__name__, method)
                     cls.__protocols__.update({protocol})
                 else:
@@ -107,9 +109,11 @@ def joint(*protocols):
                     In jointing %s, conflict function name:
                     "%s" with "%s"
                     using the second one above.
-                    '''%(cls, method, exist_method)
+                    ''' % (cls, method, exist_method)
                     warn(warning_string)
 
+        cls.get_protocol_hierarchy = classmethod(
+            ProtocolMeta.get_protocol_hierarchy)
         return cls
     return wrapper
 
@@ -125,25 +129,11 @@ class InstantiationException(Exception):
 
 
 class DuplicateProtocolException(Exception):
+
     ''' No reason to joint duplicated protocols'''
 
 
 class ProtocolMeta(type):
-
-    def trimExtended(self):
-        ''' trim protocol hierarchy'''
-        assert(not hasattr(self, '_isprotocol'))
-        print(self)
-        print('trimExtended')
-
-    def get_protocol_hierarchy(self):
-        assert(not hasattr(self, '_isprotocol'))
-
-        for p in self.__protocols__:
-            print(p)
-            for i in p.__interface__:
-                print(i)
-            print()
 
     def __new__(cls, name, bases, dct):
         for base in bases:
@@ -166,3 +156,39 @@ class ProtocolMeta(type):
                 'Protocols Could not be instantiated.')
         else:
             return super().__call__(*args, **kwargs)
+
+    @staticmethod
+    def update_hierarchy(upper, qname_list):
+
+        this_level = qname_list.pop(0)
+        level_content = getattr(upper, this_level, [])
+        upper.update({this_level, level_content})
+
+        if len(qname_list) == 0:
+            return 
+        return level_content.append(update_hierarchy({}, qname_list))
+        
+
+
+    # this is classmethod, bounded when newclass bounded
+    # @classmethod should not be here
+    def get_protocol_hierarchy(cls):
+        rslt = {}
+        for method in get_callables(cls):
+            qname_list = method.__qualname__.split(',')
+            owner = qname_list[0]
+            if owner != cls.__name__:
+                ProtocolMeta.update_hierarchy(rslt, qname_list)
+
+        return rslt
+
+class ProtocolHierarchy():
+    @property
+    def hierarchy(self):
+        return self._hierarchy
+
+    def __setattr__(self, name, value):
+        if not isinstance(value, ProtocolHierarchy):
+            return
+        
+        object.__setattr__(self, name, value)

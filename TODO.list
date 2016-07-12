@@ -2,9 +2,12 @@ This is TODO list
 
 1. Add some methods in <class ProtocolMeta>, such as get_protocol_hierarchy(),
    get_all_protocol_methods(), etc.
+
 2. Improve test. There should be a Test/ folder with *.py for seperate
    functional testing.
+
 3. Add functionality, that could extract protocols from a jointer, and inject
    these protocols into another object.
+   
 4. Compatibility issues: i) get_callables() on pandas.DataFrame.
                         ii) method_descriptor such as str.ljust.
